@@ -1,0 +1,9 @@
+{
+    "EarlyTime": "06:00",
+    "LateTime": "23:00",
+    "latitude": "60.0000",
+    "longitude": "5.0000",
+    "start_time": "08:30:00",
+    "create_calendar": "True",
+    "num_days": "9"
+  }
