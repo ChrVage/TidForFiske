@@ -35,9 +35,18 @@ def get_high_tides(latitude, longitude, num_days):
         
         high_tides = []
         for waterlevel in root.findall(".//waterlevel[@flag='high']"):
+            time_str = waterlevel.get("time")
+            time_obj = datetime.fromisoformat(time_str)
+            date = time_obj.strftime('%Y-%m-%d')
+            time_end = time_obj.strftime('%H:%M:%S')
+            time_start = (time_obj - timedelta(hours=1)).strftime('%H:%M:%S')
+            height = waterlevel.get("value")
+            
             high_tides.append({
-                "time": waterlevel.get("time"),
-                "value": waterlevel.get("value")
+                "time_start": f"{date} {time_start}",
+                "time_end": f"{date} {time_end}",
+                "data": height,
+                'type': 'high_tide'
             })
         
         return high_tides
@@ -119,7 +128,7 @@ def get_metno_oceanforecast(latitude, longitude):
         return "Failed to fetch data"
 
 def get_metno_sunrise(latitude, longitude, NumDays=9):
-    url = "https://api.met.no/weatherapi/sunrise/3.0/.json"
+    url = "https://api.met.no/weatherapi/sunrise/3.0/sun"
     
     headers = {
         'User-Agent': 'TidForFiske (Chr@Vage.com)' 
@@ -134,7 +143,7 @@ def get_metno_sunrise(latitude, longitude, NumDays=9):
         # Get the current date in UTC and convert it to CET
         date_utc = datetime.now(pytz.utc) + timedelta(days=i)
         date_cet = date_utc.astimezone(cet).strftime("%Y-%m-%d")
-        
+
         params = {
             "lat": latitude,
             "lon": longitude,
@@ -144,28 +153,28 @@ def get_metno_sunrise(latitude, longitude, NumDays=9):
         response = requests.get(url, headers=headers, params=params)
         if response.status_code == 200:
             data = response.json()
-            for item in data['location']['time']:
-                date = item['date']
-                sunrise_time = item['sunrise']['time']
-                sunrise_azimuth = item['sunrise']['azimuth']
-                sunset_time = item['sunset']['time']
-                sunset_azimuth = item['sunset']['azimuth']
-                
-                sunrise_time_cet = datetime.fromisoformat(sunrise_time).astimezone(cet).strftime("%H:%M:%S")
-                sunset_time_cet = datetime.fromisoformat(sunset_time).astimezone(cet).strftime("%H:%M:%S")
+            
+            date = params["date"]
+            sunrise_time = data['properties']['sunrise']['time']
+            sunrise_azimuth = data['properties']['sunrise']['azimuth']
+            sunset_time = data['properties']['sunset']['time']
+            sunset_azimuth = data['properties']['sunset']['azimuth']
+            
+            sunrise_time_cet = datetime.fromisoformat(sunrise_time).astimezone(cet).strftime("%H:%M:%S")
+            sunset_time_cet = datetime.fromisoformat(sunset_time).astimezone(cet).strftime("%H:%M:%S")
 
-                results.append({
-                    'date': date,
-                    'sunrise_time': sunrise_time_cet,
-                    'sunrise_azimuth': sunrise_azimuth,
-                    'sunset_time': sunset_time_cet,
-                    'sunset_azimuth': sunset_azimuth,
-                })
+            results.append({
+                'date': date,
+                'sunrise_time': sunrise_time_cet,
+                'sunrise_azimuth': sunrise_azimuth,
+                'sunset_time': sunset_time_cet,
+                'sunset_azimuth': sunset_azimuth,
+            })
+
         else:
             print("Failed to fetch data")
 
     return results
-
 
 def create_excel_from_data(data, file_name='output.xlsx'):
     # Convert the list of dictionaries to a pandas DataFrame
@@ -181,8 +190,8 @@ with open('TidForFiske_config.json', 'r', encoding='utf-8') as config_file:
 # Accessing the configuration variables
 EarlyTime = config.get("EarlyTime", "06:00")
 LateTime = config.get("LateTime", "23:00")
-latitude = config.get("latitude", 60.0) # Assuming latitude is a float
-longitude = config.get("longitude", 5.0) # Assuming longitude is a float
+latitude = config.get("latitude", 60.0)
+longitude = config.get("longitude", 5.0)
 CreateCalendar = config.get("CreateCalendar", True)
 NumDays = config.get("NumDays", 9)
 
@@ -193,7 +202,60 @@ locationforecast = get_metno_locationforecast(latitude, longitude)
 oceanforecast = get_metno_oceanforecast(latitude, longitude)
 sun_times = get_metno_sunrise(latitude, longitude, NumDays)
 
-create_excel_from_data(high_tides, "zz_high_tides.xlsx")
-create_excel_from_data(locationforecast, "zz_locationforecast.xlsx")
-create_excel_from_data(oceanforecast, "zz_oceanforecast.xlsx")
-create_excel_from_data(sun_times, "zz_sun_times.xlsx")
+sunrise = [{
+    'time_start': f"{item['date']} {item['sunrise_time']}",
+    'time_end': datetime.strptime(item['date'] + ' ' + item['sunrise_time'], "%Y-%m-%d %H:%M:%S") + timedelta(hours=1),
+    'data': item['sunrise_azimuth'],
+    'type': 'sunrise'
+} for item in sun_times]
+
+# Convert 'time_end' back to string if necessary
+for item in sunrise:
+    item['time_end'] = item['time_end'].strftime("%Y-%m-%d %H:%M:%S")
+
+sunset = [{
+    'time_start': datetime.strptime(item['date'] + ' ' + item['sunset_time'], "%Y-%m-%d %H:%M:%S") - timedelta(hours=1),
+    'time_end': f"{item['date']} {item['sunset_time']}",
+    'data': item['sunset_azimuth'],
+    'type': 'sunset'
+} for item in sun_times]
+
+# Convert 'time_start' back to string if necessary
+for item in sunset:
+    item['time_start'] = item['time_start'].strftime("%Y-%m-%d %H:%M:%S")
+
+fisketider = high_tides + sunrise + sunset
+
+# Assuming fisketider is already filled with your data
+df = pd.DataFrame(fisketider)
+
+# Convert EarlyTime and LateTime to timedeltas for comparison
+early_time_obj = datetime.strptime(EarlyTime, '%H:%M').time()
+late_time_obj = datetime.strptime(LateTime, '%H:%M').time()
+
+# Ensure 'time_start' and 'time_end' are in datetime.time format for comparison
+df['time_start'] = pd.to_datetime(df['time_start'], format='%Y-%m-%d %H:%M:%S')
+df['time_end'] = pd.to_datetime(df['time_end'], format='%Y-%m-%d %H:%M:%S')
+
+# Filter out rows where 'time_end' is earlier than 'EarlyTime' or 'time_start' is later than 'LateTime'
+filtered_df = df[(df['time_end'].dt.time >= early_time_obj) & (df['time_start'].dt.time <= late_time_obj)]
+
+# Sort by 'date', then by 'time_start'
+sorted_filtered_df = filtered_df.sort_values(by=['time_start'])
+
+# Convert back to your desired format if necessary, for example, to a list of dictionaries
+filtered_sorted_data = sorted_filtered_df.to_dict('records')
+
+# Finally, create an Excel file with the filtered and sorted data
+create_excel_from_data(filtered_sorted_data, "zz_fisketider_filtered_sorted.xlsx")
+
+
+
+
+# create_excel_from_data(fisketider, "zz_fisketider.xlsx")
+# create_excel_from_data(high_tides, "zz_high_tides.xlsx")
+# create_excel_from_data(locationforecast, "zz_locationforecast.xlsx")
+# create_excel_from_data(oceanforecast, "zz_oceanforecast.xlsx")
+# create_excel_from_data(sun_times, "zz_sun_times.xlsx")
+# create_excel_from_data(sunrise, "zz_sunrise.xlsx")
+# create_excel_from_data(sunset, "zz_sunset.xlsx")
