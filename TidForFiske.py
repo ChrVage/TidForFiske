@@ -248,3 +248,5 @@ filtered_sorted_data = sorted_filtered_df.to_dict('records')
 
 # Finally, create an Excel file with the filtered and sorted data
 create_excel_from_data(filtered_sorted_data, "zz_fisketider_filtered_sorted.xlsx")
+# create_excel_from_data(oceanforecast, "zz_oceanforecast.xlsx")
+create_excel_from_data(locationforecast, "zz_locationforecast.xlsx")
