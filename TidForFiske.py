@@ -3,11 +3,26 @@ import pandas as pd
 from datetime import datetime, timedelta
 import pytz
 import json
+from xml.etree import ElementTree as ET
 
 def fetch_data(url, params=None, headers=None):
-    """Unified data fetching function to minimize repetitive code."""
+    """Unified data fetching function to handle both XML and JSON responses."""
     response = requests.get(url, params=params, headers=headers)
-    return response.json() if response.status_code == 200 else None
+    if response.status_code == 200:
+        content_type = response.headers.get('Content-Type', '')
+        if 'application/json' in content_type:
+            return response.json()
+        elif 'text/xml' in content_type or 'application/xml' in content_type:
+            # Properly parse XML data
+            return ET.fromstring(response.content)
+        else:
+            # This path now explicitly tries to parse XML as a fallback
+            try:
+                return ET.fromstring(response.content)
+            except ET.ParseError:
+                # If parsing fails, return None or handle as needed
+                return None
+    return None
 
 def get_time_range(num_days, timezone='UTC'):
     """Generate from and to time strings."""
@@ -78,4 +93,4 @@ latitude, longitude, num_days = config.get("latitude", 59.9), config.get("longit
 high_tides, weather_forecast, ocean_forecast = get_combined_data(latitude, longitude, num_days)
 
 # Further processing and Excel creation can follow based on the obtained data
-create_excel(high_tides + weather_forecast + ocean_forecast, "combined_data.xlsx")
+create_excel(high_tides + weather_forecast + ocean_forecast, "zz_FiskeTid.xlsx")
