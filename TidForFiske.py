@@ -54,7 +54,7 @@ def process_forecasts(data, forecast_type):
         forecasts.append(forecast)
     return forecasts
 
-def get_combined_data(latitude, longitude, num_days):
+def get_data(latitude, longitude, num_days):
     """Fetch and combine data from different sources."""
     timezone = pytz.timezone('CET')
     fromtime, totime = get_time_range(num_days)
@@ -72,13 +72,15 @@ def get_combined_data(latitude, longitude, num_days):
     tide_data = fetch_data(tide_api_url, params=common_params)
     weather_data = fetch_data(weather_api_url, headers=headers, params={"lat": latitude, "lon": longitude})
     ocean_data = fetch_data(ocean_api_url, headers=headers, params={"lat": latitude, "lon": longitude})
+    sun_data = fetch_data(sunrise_api_url, headers=headers, params={"lat": latitude, "lon": longitude})
     
     # Process data
     high_tides = process_high_tides(tide_data, timezone) if tide_data else []
     weather_forecast = process_forecasts(weather_data, 'weather') if weather_data else []
     ocean_forecast = process_forecasts(ocean_data, 'ocean') if ocean_data else []
+    sun_data = process_forecasts(sun_data, 'sunrise') if sun_data else []
     
-    return high_tides, weather_forecast, ocean_forecast
+    return high_tides, weather_forecast, ocean_forecast, sun_data
 
 def create_excel(data, file_name='output.xlsx'):
     """Generate Excel file from data."""
@@ -88,9 +90,12 @@ def create_excel(data, file_name='output.xlsx'):
 
 # Configuration and data fetching
 config = json.load(open('TidForFiske_config.json', 'r', encoding='utf-8'))
-latitude, longitude, num_days = config.get("latitude", 59.9), config.get("longitude", 5.0), config.get("NumDays", 30)
+latitude, longitude, time_start, time_end, duration_prep, duration_fish, duration_home, num_days, mode = config.get("latitude", 59.9), config.get("longitude", 5.0), config.get("time_start", 6), config.get("time_end", 18), config.get("duration_prep", 1), config.get("duration_fish", 4), config.get("duration_home", 1), config.get("NumDays", 30), config.get("mode", "fishing")
 
-high_tides, weather_forecast, ocean_forecast = get_combined_data(latitude, longitude, num_days)
+high_tides, weather_forecast, ocean_forecast, sun_data = get_data(latitude, longitude, num_days)
 
 # Further processing and Excel creation can follow based on the obtained data
 create_excel(high_tides + weather_forecast + ocean_forecast, "zz_FiskeTid.xlsx")
+create_excel(sun_data, "zz_SunriseSunset.xlsx")
+
+

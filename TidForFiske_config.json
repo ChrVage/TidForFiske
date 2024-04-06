@@ -1,9 +1,11 @@
 {
-    "EarlyTime": "09:00",
-    "LateTime": "20:00",
-    "latitude": "60.0000",
-    "longitude": "5.0000",
-    "start_time": "08:30:00",
-    "create_calendar": "True",
-    "num_days": "30"
-  }
+  "latitude": "60.0000",
+  "longitude": "5.0000",
+  "time_start": "07:00",
+  "time_end": "21:00",
+  "duration_prep": "00:30",
+  "duration_fish": "02:00",
+  "duration_home": "00:30",
+  "num_days": 9,
+  "mode": "forecast"
+}
