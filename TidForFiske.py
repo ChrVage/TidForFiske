@@ -5,9 +5,13 @@ import pytz
 import json
 from xml.etree import ElementTree as ET
 
+# 
 def fetch_data(url, params=None, headers=None):
     """Unified data fetching function to handle both XML and JSON responses."""
     response = requests.get(url, params=params, headers=headers)
+
+# Til havnivå, er alle parameterene med? Sjekk i postman. Når 
+
     if response.status_code == 200:
         content_type = response.headers.get('Content-Type', '')
         if 'application/json' in content_type:
@@ -24,6 +28,7 @@ def fetch_data(url, params=None, headers=None):
                 return None
     return None
 
+# 
 def get_time_range(num_days, timezone='UTC'):
     """Generate from and to time strings."""
     utc_now = datetime.now(pytz.utc)
@@ -95,7 +100,8 @@ latitude, longitude, time_start, time_end, duration_prep, duration_fish, duratio
 high_tides, weather_forecast, ocean_forecast, sun_data = get_data(latitude, longitude, num_days)
 
 # Further processing and Excel creation can follow based on the obtained data
-create_excel(high_tides + weather_forecast + ocean_forecast, "zz_FiskeTid.xlsx")
+create_excel(weather_forecast + ocean_forecast, "zz_FiskeTid.xlsx")
+create_excel(high_tides , "zz_Flo.xlsx")
 create_excel(sun_data, "zz_SunriseSunset.xlsx")
 
 
