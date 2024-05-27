@@ -5,7 +5,7 @@ import pytz
 import json
 from xml.etree import ElementTree as ET
 
-# 
+# This fun
 def fetch_data(url, params=None, headers=None):
     """Unified data fetching function to handle both XML and JSON responses."""
     response = requests.get(url, params=params, headers=headers)
